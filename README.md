@@ -1,7 +1,5 @@
 # Doo Agent
 
-![Agent Evals](https://github.com/nynrathod/doo-agent/actions/workflows/evals.yml/badge.svg)
-
 An AI assistant for the [Doo programming language](https://github.com/nynrathod/doolang).
 Ask it anything about Doo — syntax, types, FFI, the web framework — and it answers
 from the official documentation.
