@@ -1,9 +1,9 @@
-import { Suspense, useCallback, useState, useEffect, useRef } from 'react'
-import { useAgent } from 'agents/react'
-import { useAgentChat } from '@cloudflare/ai-chat/react'
-import { getToolName, isToolUIPart, type UIMessage } from 'ai'
-import type { MCPServersState } from 'agents'
-import type { DooAgent } from './server'
+import { Suspense, useCallback, useState, useEffect, useRef } from "react";
+import { useAgent } from "agents/react";
+import { useAgentChat } from "@cloudflare/ai-chat/react";
+import { getToolName, isToolUIPart, type UIMessage } from "ai";
+import type { MCPServersState } from "agents";
+import type { DooAgent } from "./server";
 import {
   Badge,
   Button,
@@ -12,11 +12,11 @@ import {
   PoweredByCloudflare,
   Surface,
   Switch,
-  Text,
-} from '@cloudflare/kumo'
-import { Toasty, useKumoToastManager } from '@cloudflare/kumo/components/toast'
-import { Streamdown } from 'streamdown'
-import { code } from '@streamdown/code'
+  Text
+} from "@cloudflare/kumo";
+import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
+import { Streamdown } from "streamdown";
+import { code } from "@streamdown/code";
 import {
   PaperPlaneRightIcon,
   StopIcon,
@@ -37,16 +37,16 @@ import {
   XIcon,
   WrenchIcon,
   PaperclipIcon,
-  ImageIcon,
-} from '@phosphor-icons/react'
+  ImageIcon
+} from "@phosphor-icons/react";
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
 interface Attachment {
-  id: string
-  file: File
-  preview: string
-  mediaType: string
+  id: string;
+  file: File;
+  preview: string;
+  mediaType: string;
 }
 
 function createAttachment(file: File): Attachment {
@@ -54,34 +54,34 @@ function createAttachment(file: File): Attachment {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     file,
     preview: URL.createObjectURL(file),
-    mediaType: file.type || 'application/octet-stream',
-  }
+    mediaType: file.type || "application/octet-stream"
+  };
 }
 
 function fileToDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 // ── Small components ──────────────────────────────────────────────────
 
 function ThemeToggle() {
   const [dark, setDark] = useState(
-    () => document.documentElement.getAttribute('data-mode') === 'dark'
-  )
+    () => document.documentElement.getAttribute("data-mode") === "dark"
+  );
 
   const toggle = useCallback(() => {
-    const next = !dark
-    setDark(next)
-    const mode = next ? 'dark' : 'light'
-    document.documentElement.setAttribute('data-mode', mode)
-    document.documentElement.style.colorScheme = mode
-    localStorage.setItem('theme', mode)
-  }, [dark])
+    const next = !dark;
+    setDark(next);
+    const mode = next ? "dark" : "light";
+    document.documentElement.setAttribute("data-mode", mode);
+    document.documentElement.style.colorScheme = mode;
+    localStorage.setItem("theme", mode);
+  }, [dark]);
 
   return (
     <Button
@@ -91,15 +91,16 @@ function ThemeToggle() {
       onClick={toggle}
       aria-label="Toggle theme"
     />
-  )
+  );
 }
 
 // ── Tool rendering ────────────────────────────────────────────────────
 
 function ToolIO({ label, value }: { label: string; value: unknown }) {
-  if (value === undefined || value === null) return null
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
-  if (!text) return null
+  if (value === undefined || value === null) return null;
+  const text =
+    typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  if (!text) return null;
   return (
     <div className="mt-1">
       <Text size="xs" variant="secondary" bold>
@@ -109,21 +110,24 @@ function ToolIO({ label, value }: { label: string; value: unknown }) {
         {text}
       </pre>
     </div>
-  )
+  );
 }
 
 function ToolPartView({
   part,
-  addToolApprovalResponse,
+  addToolApprovalResponse
 }: {
-  part: UIMessage['parts'][number]
-  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void
+  part: UIMessage["parts"][number];
+  addToolApprovalResponse: (response: {
+    id: string;
+    approved: boolean;
+  }) => void;
 }) {
-  if (!isToolUIPart(part)) return null
-  const toolName = getToolName(part)
+  if (!isToolUIPart(part)) return null;
+  const toolName = getToolName(part);
 
   // Completed
-  if (part.state === 'output-available') {
+  if (part.state === "output-available") {
     return (
       <div className="flex justify-start">
         <Surface className="ring-kumo-line max-w-[85%] rounded-xl px-4 py-2.5 ring">
@@ -138,12 +142,12 @@ function ToolPartView({
           <ToolIO label="Output" value={part.output} />
         </Surface>
       </div>
-    )
+    );
   }
 
   // Needs approval
-  if ('approval' in part && part.state === 'approval-requested') {
-    const approvalId = (part.approval as { id?: string })?.id
+  if ("approval" in part && part.state === "approval-requested") {
+    const approvalId = (part.approval as { id?: string })?.id;
     return (
       <div className="flex justify-start">
         <Surface className="ring-kumo-warning max-w-[85%] rounded-xl px-4 py-3 ring-2">
@@ -165,7 +169,7 @@ function ToolPartView({
               icon={<CheckCircleIcon size={14} />}
               onClick={() => {
                 if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: true })
+                  addToolApprovalResponse({ id: approvalId, approved: true });
                 }
               }}
             >
@@ -177,7 +181,7 @@ function ToolPartView({
               icon={<XCircleIcon size={14} />}
               onClick={() => {
                 if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: false })
+                  addToolApprovalResponse({ id: approvalId, approved: false });
                 }
               }}
             >
@@ -186,13 +190,14 @@ function ToolPartView({
           </div>
         </Surface>
       </div>
-    )
+    );
   }
 
   // Rejected / denied
   if (
-    part.state === 'output-denied' ||
-    ('approval' in part && (part.approval as { approved?: boolean })?.approved === false)
+    part.state === "output-denied" ||
+    ("approval" in part &&
+      (part.approval as { approved?: boolean })?.approved === false)
   ) {
     return (
       <div className="flex justify-start">
@@ -206,12 +211,12 @@ function ToolPartView({
           </div>
         </Surface>
       </div>
-    )
+    );
   }
 
   // Errored
-  if (part.state === 'output-error') {
-    const errorText = part.errorText
+  if (part.state === "output-error") {
+    const errorText = part.errorText;
     return (
       <div className="flex justify-start">
         <Surface className="ring-kumo-danger max-w-[85%] rounded-xl px-4 py-2.5 ring-2">
@@ -224,16 +229,16 @@ function ToolPartView({
           </div>
           <div className="font-mono">
             <Text size="xs" variant="secondary">
-              {errorText || 'Tool call failed'}
+              {errorText || "Tool call failed"}
             </Text>
           </div>
         </Surface>
       </div>
-    )
+    );
   }
 
   // Executing
-  if (part.state === 'input-available' || part.state === 'input-streaming') {
+  if (part.state === "input-available" || part.state === "input-streaming") {
     return (
       <div className="flex justify-start">
         <Surface className="ring-kumo-line max-w-[85%] rounded-xl px-4 py-2.5 ring">
@@ -246,195 +251,208 @@ function ToolPartView({
           <ToolIO label="Input" value={part.input} />
         </Surface>
       </div>
-    )
+    );
   }
 
-  return null
+  return null;
 }
 
 // ── Main chat ─────────────────────────────────────────────────────────
 
 function Chat() {
-  const [connected, setConnected] = useState(false)
-  const [input, setInput] = useState('')
-  const [showDebug, setShowDebug] = useState(false)
-  const [attachments, setAttachments] = useState<Attachment[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const toasts = useKumoToastManager()
+  const [connected, setConnected] = useState(false);
+  const [input, setInput] = useState("");
+  const [showDebug, setShowDebug] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const toasts = useKumoToastManager();
   const [mcpState, setMcpState] = useState<MCPServersState>({
     prompts: [],
     resources: [],
     servers: {},
-    tools: [],
-  })
-  const [showMcpPanel, setShowMcpPanel] = useState(false)
-  const [mcpName, setMcpName] = useState('')
-  const [mcpUrl, setMcpUrl] = useState('')
-  const [isAddingServer, setIsAddingServer] = useState(false)
-  const mcpPanelRef = useRef<HTMLDivElement>(null)
+    tools: []
+  });
+  const [showMcpPanel, setShowMcpPanel] = useState(false);
+  const [mcpName, setMcpName] = useState("");
+  const [mcpUrl, setMcpUrl] = useState("");
+  const [isAddingServer, setIsAddingServer] = useState(false);
+  const mcpPanelRef = useRef<HTMLDivElement>(null);
 
   const agent = useAgent<DooAgent>({
-    agent: 'DooAgent',
+    agent: "DooAgent",
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
-    onError: useCallback((error: Event) => console.error('WebSocket error:', error), []),
+    onError: useCallback(
+      (error: Event) => console.error("WebSocket error:", error),
+      []
+    ),
     onMcpUpdate: useCallback((state: MCPServersState) => {
-      setMcpState(state)
+      setMcpState(state);
     }, []),
     onMessage: useCallback(
       (message: MessageEvent) => {
         try {
-          const data = JSON.parse(String(message.data))
-          if (data.type === 'scheduled-task') {
+          const data = JSON.parse(String(message.data));
+          if (data.type === "scheduled-task") {
             toasts.add({
-              title: 'Scheduled task completed',
+              title: "Scheduled task completed",
               description: data.description,
-              timeout: 0,
-            })
+              timeout: 0
+            });
           }
         } catch {
           // Not JSON or not our event
         }
       },
       [toasts]
-    ),
-  })
+    )
+  });
 
   // Close MCP panel when clicking outside
   useEffect(() => {
-    if (!showMcpPanel) return
+    if (!showMcpPanel) return;
     function handleClickOutside(e: MouseEvent) {
-      if (mcpPanelRef.current && !mcpPanelRef.current.contains(e.target as Node)) {
-        setShowMcpPanel(false)
+      if (
+        mcpPanelRef.current &&
+        !mcpPanelRef.current.contains(e.target as Node)
+      ) {
+        setShowMcpPanel(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showMcpPanel])
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMcpPanel]);
 
   const handleAddServer = async () => {
-    if (!mcpName.trim() || !mcpUrl.trim()) return
-    setIsAddingServer(true)
+    if (!mcpName.trim() || !mcpUrl.trim()) return;
+    setIsAddingServer(true);
     try {
-      await agent.stub.addServer(mcpName.trim(), mcpUrl.trim())
-      setMcpName('')
-      setMcpUrl('')
+      await agent.stub.addServer(mcpName.trim(), mcpUrl.trim());
+      setMcpName("");
+      setMcpUrl("");
     } catch (e) {
-      console.error('Failed to add MCP server:', e)
+      console.error("Failed to add MCP server:", e);
     } finally {
-      setIsAddingServer(false)
+      setIsAddingServer(false);
     }
-  }
+  };
 
   const handleRemoveServer = async (serverId: string) => {
     try {
-      await agent.stub.removeServer(serverId)
+      await agent.stub.removeServer(serverId);
     } catch (e) {
-      console.error('Failed to remove MCP server:', e)
+      console.error("Failed to remove MCP server:", e);
     }
-  }
+  };
 
-  const serverEntries = Object.entries(mcpState.servers)
-  const mcpToolCount = mcpState.tools.length
+  const serverEntries = Object.entries(mcpState.servers);
+  const mcpToolCount = mcpState.tools.length;
 
-  const { messages, sendMessage, clearHistory, addToolApprovalResponse, stop, status } =
-    useAgentChat({
-      agent,
-      experimental_throttle: 100,
-    })
+  const {
+    messages,
+    sendMessage,
+    clearHistory,
+    addToolApprovalResponse,
+    stop,
+    status
+  } = useAgentChat({
+    agent,
+    experimental_throttle: 100
+  });
 
-  const isStreaming = status === 'streaming' || status === 'submitted'
+  const isStreaming = status === "streaming" || status === "submitted";
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Re-focus the input after streaming ends
   useEffect(() => {
     if (!isStreaming && textareaRef.current) {
-      textareaRef.current.focus()
+      textareaRef.current.focus();
     }
-  }, [isStreaming])
+  }, [isStreaming]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const images = Array.from(files).filter((f) => f.type.startsWith('image/'))
-    if (images.length === 0) return
-    setAttachments((prev) => [...prev, ...images.map(createAttachment)])
-  }, [])
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (images.length === 0) return;
+    setAttachments((prev) => [...prev, ...images.map(createAttachment)]);
+  }, []);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => {
-      const att = prev.find((a) => a.id === id)
-      if (att) URL.revokeObjectURL(att.preview)
-      return prev.filter((a) => a.id !== id)
-    })
-  }, [])
+      const att = prev.find((a) => a.id === id);
+      if (att) URL.revokeObjectURL(att.preview);
+      return prev.filter((a) => a.id !== id);
+    });
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.dataTransfer.types.includes('Files')) setIsDragging(true)
-  }, [])
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.currentTarget === e.target) setIsDragging(false)
-  }, [])
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target) setIsDragging(false);
+  }, []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragging(false)
-      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files)
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
     },
     [addFiles]
-  )
+  );
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
-      const items = e.clipboardData?.items
-      if (!items) return
-      const files: File[] = []
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
       for (const item of items) {
-        if (item.kind === 'file') {
-          const file = item.getAsFile()
-          if (file) files.push(file)
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) files.push(file);
         }
       }
       if (files.length > 0) {
-        e.preventDefault()
-        addFiles(files)
+        e.preventDefault();
+        addFiles(files);
       }
     },
     [addFiles]
-  )
+  );
 
   const send = useCallback(async () => {
-    const text = input.trim()
-    if ((!text && attachments.length === 0) || isStreaming) return
-    setInput('')
+    const text = input.trim();
+    if ((!text && attachments.length === 0) || isStreaming) return;
+    setInput("");
 
     const parts: Array<
-      { type: 'text'; text: string } | { type: 'file'; mediaType: string; url: string }
-    > = []
-    if (text) parts.push({ type: 'text', text })
+      | { type: "text"; text: string }
+      | { type: "file"; mediaType: string; url: string }
+    > = [];
+    if (text) parts.push({ type: "text", text });
 
     for (const att of attachments) {
-      const dataUri = await fileToDataUri(att.file)
-      parts.push({ type: 'file', mediaType: att.mediaType, url: dataUri })
+      const dataUri = await fileToDataUri(att.file);
+      parts.push({ type: "file", mediaType: att.mediaType, url: dataUri });
     }
 
-    for (const att of attachments) URL.revokeObjectURL(att.preview)
-    setAttachments([])
+    for (const att of attachments) URL.revokeObjectURL(att.preview);
+    setAttachments([]);
 
-    sendMessage({ role: 'user', parts })
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-  }, [input, attachments, isStreaming, sendMessage])
+    sendMessage({ role: "user", parts });
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  }, [input, attachments, isStreaming, sendMessage]);
 
   return (
     <div
@@ -471,10 +489,10 @@ function Chat() {
               <CircleIcon
                 size={8}
                 weight="fill"
-                className={connected ? 'text-kumo-success' : 'text-kumo-danger'}
+                className={connected ? "text-kumo-success" : "text-kumo-danger"}
               />
               <Text size="xs" variant="secondary">
-                {connected ? 'Connected' : 'Disconnected'}
+                {connected ? "Connected" : "Disconnected"}
               </Text>
             </div>
             <div className="flex items-center gap-1.5">
@@ -509,12 +527,17 @@ function Chat() {
                     {/* Panel Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <PlugsConnectedIcon size={16} className="text-kumo-accent" />
+                        <PlugsConnectedIcon
+                          size={16}
+                          className="text-kumo-accent"
+                        />
                         <Text size="sm" bold>
                           MCP Servers
                         </Text>
                         {serverEntries.length > 0 && (
-                          <Badge variant="secondary">{serverEntries.length}</Badge>
+                          <Badge variant="secondary">
+                            {serverEntries.length}
+                          </Badge>
                         )}
                       </div>
                       <Button
@@ -530,8 +553,8 @@ function Chat() {
                     {/* Add Server Form */}
                     <form
                       onSubmit={(e) => {
-                        e.preventDefault()
-                        handleAddServer()
+                        e.preventDefault();
+                        handleAddServer();
                       }}
                       className="space-y-2"
                     >
@@ -557,9 +580,11 @@ function Chat() {
                           variant="primary"
                           size="sm"
                           icon={<PlusIcon size={14} />}
-                          disabled={isAddingServer || !mcpName.trim() || !mcpUrl.trim()}
+                          disabled={
+                            isAddingServer || !mcpName.trim() || !mcpUrl.trim()
+                          }
                         >
-                          {isAddingServer ? '...' : 'Add'}
+                          {isAddingServer ? "..." : "Add"}
                         </Button>
                       </div>
                     </form>
@@ -579,11 +604,11 @@ function Chat() {
                                 </span>
                                 <Badge
                                   variant={
-                                    server.state === 'ready'
-                                      ? 'primary'
-                                      : server.state === 'failed'
-                                        ? 'destructive'
-                                        : 'secondary'
+                                    server.state === "ready"
+                                      ? "primary"
+                                      : server.state === "failed"
+                                        ? "destructive"
+                                        : "secondary"
                                   }
                                 >
                                   {server.state}
@@ -592,29 +617,30 @@ function Chat() {
                               <span className="text-kumo-subtle mt-0.5 block truncate font-mono text-xs">
                                 {server.server_url}
                               </span>
-                              {server.state === 'failed' && server.error && (
+                              {server.state === "failed" && server.error && (
                                 <span className="mt-0.5 block text-xs text-red-500">
                                   {server.error}
                                 </span>
                               )}
                             </div>
                             <div className="ml-2 flex shrink-0 items-center gap-1">
-                              {server.state === 'authenticating' && server.auth_url && (
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  icon={<SignInIcon size={12} />}
-                                  onClick={() =>
-                                    window.open(
-                                      server.auth_url as string,
-                                      'oauth',
-                                      'width=600,height=800'
-                                    )
-                                  }
-                                >
-                                  Auth
-                                </Button>
-                              )}
+                              {server.state === "authenticating" &&
+                                server.auth_url && (
+                                  <Button
+                                    variant="primary"
+                                    size="sm"
+                                    icon={<SignInIcon size={12} />}
+                                    onClick={() =>
+                                      window.open(
+                                        server.auth_url as string,
+                                        "oauth",
+                                        "width=600,height=800"
+                                      )
+                                    }
+                                  >
+                                    Auth
+                                  </Button>
+                                )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -636,7 +662,8 @@ function Chat() {
                           <WrenchIcon size={14} className="text-kumo-subtle" />
                           <span className="text-kumo-subtle text-xs">
                             {mcpToolCount} tool
-                            {mcpToolCount !== 1 ? 's' : ''} available from MCP servers
+                            {mcpToolCount !== 1 ? "s" : ""} available from MCP
+                            servers
                           </span>
                         </div>
                       </div>
@@ -645,7 +672,11 @@ function Chat() {
                 </div>
               )}
             </div>
-            <Button variant="secondary" icon={<TrashIcon size={16} />} onClick={clearHistory}>
+            <Button
+              variant="secondary"
+              icon={<TrashIcon size={16} />}
+              onClick={clearHistory}
+            >
               Clear
             </Button>
           </div>
@@ -662,10 +693,10 @@ function Chat() {
               contents={
                 <div className="flex flex-wrap justify-center gap-2">
                   {[
-                    'What is Doo?',
-                    'How do I declare a function in Doo?',
+                    "What is Doo?",
+                    "How do I declare a function in Doo?",
                     "Show me Doo's control flow syntax",
-                    'How does FFI work in Doo?',
+                    "How does FFI work in Doo?"
                   ].map((prompt) => (
                     <Button
                       key={prompt}
@@ -674,9 +705,9 @@ function Chat() {
                       disabled={isStreaming}
                       onClick={() => {
                         sendMessage({
-                          role: 'user',
-                          parts: [{ type: 'text', text: prompt }],
-                        })
+                          role: "user",
+                          parts: [{ type: "text", text: prompt }]
+                        });
                       }}
                     >
                       {prompt}
@@ -688,8 +719,9 @@ function Chat() {
           )}
 
           {messages.map((message: UIMessage, index: number) => {
-            const isUser = message.role === 'user'
-            const isLastAssistant = message.role === 'assistant' && index === messages.length - 1
+            const isUser = message.role === "user";
+            const isLastAssistant =
+              message.role === "assistant" && index === messages.length - 1;
 
             return (
               <div key={message.id} className="space-y-2">
@@ -701,7 +733,7 @@ function Chat() {
 
                 {/* Render parts in chronological (array) order */}
                 {message.parts.map((part, i) => {
-                  const key = `${message.id}-${i}`
+                  const key = `${message.id}-${i}`;
 
                   if (isToolUIPart(part)) {
                     return (
@@ -710,47 +742,62 @@ function Chat() {
                         part={part}
                         addToolApprovalResponse={addToolApprovalResponse}
                       />
-                    )
+                    );
                   }
 
-                  if (part.type === 'reasoning') {
-                    if (!part.text.trim()) return null
-                    const isDone = part.state === 'done' || !isStreaming
+                  if (part.type === "reasoning") {
+                    if (!part.text.trim()) return null;
+                    const isDone = part.state === "done" || !isStreaming;
                     return (
                       <div key={key} className="flex justify-start">
                         <details className="w-full max-w-[85%]" open={!isDone}>
                           <summary className="flex cursor-pointer items-center gap-2 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-2 text-sm select-none">
                             <BrainIcon size={14} className="text-purple-400" />
-                            <span className="text-kumo-default font-medium">Reasoning</span>
+                            <span className="text-kumo-default font-medium">
+                              Reasoning
+                            </span>
                             {isDone ? (
-                              <span className="text-kumo-success text-xs">Complete</span>
+                              <span className="text-kumo-success text-xs">
+                                Complete
+                              </span>
                             ) : (
-                              <span className="text-kumo-brand text-xs">Thinking...</span>
+                              <span className="text-kumo-brand text-xs">
+                                Thinking...
+                              </span>
                             )}
-                            <CaretDownIcon size={14} className="text-kumo-inactive ml-auto" />
+                            <CaretDownIcon
+                              size={14}
+                              className="text-kumo-inactive ml-auto"
+                            />
                           </summary>
                           <pre className="bg-kumo-control text-kumo-default mt-2 max-h-64 overflow-auto rounded-lg px-3 py-2 text-xs whitespace-pre-wrap">
                             {part.text}
                           </pre>
                         </details>
                       </div>
-                    )
+                    );
                   }
 
-                  if (part.type === 'file' && part.mediaType.startsWith('image/')) {
+                  if (
+                    part.type === "file" &&
+                    part.mediaType.startsWith("image/")
+                  ) {
                     return (
-                      <div key={key} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        key={key}
+                        className={`flex ${isUser ? "justify-end" : "justify-start"}`}
+                      >
                         <img
                           src={part.url}
                           alt="Attachment"
                           className="border-kumo-line max-h-64 rounded-xl border object-contain"
                         />
                       </div>
-                    )
+                    );
                   }
 
-                  if (part.type === 'text') {
-                    if (!part.text) return null
+                  if (part.type === "text") {
+                    if (!part.text) return null;
 
                     if (isUser) {
                       return (
@@ -759,7 +806,7 @@ function Chat() {
                             {part.text}
                           </div>
                         </div>
-                      )
+                      );
                     }
 
                     return (
@@ -775,13 +822,13 @@ function Chat() {
                           </Streamdown>
                         </div>
                       </div>
-                    )
+                    );
                   }
 
-                  return null
+                  return null;
                 })}
               </div>
-            )
+            );
           })}
 
           <div ref={messagesEndRef} />
@@ -792,8 +839,8 @@ function Chat() {
       <div className="border-kumo-line bg-kumo-base border-t">
         <form
           onSubmit={(e) => {
-            e.preventDefault()
-            send()
+            e.preventDefault();
+            send();
           }}
           className="mx-auto max-w-3xl px-5 py-4"
         >
@@ -805,8 +852,8 @@ function Chat() {
             aria-label="Upload image attachments"
             className="hidden"
             onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files)
-              e.target.value = ''
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
             }}
           />
 
@@ -817,7 +864,11 @@ function Chat() {
                   key={att.id}
                   className="group border-kumo-line bg-kumo-control relative overflow-hidden rounded-lg border"
                 >
-                  <img src={att.preview} alt={att.file.name} className="h-16 w-16 object-cover" />
+                  <img
+                    src={att.preview}
+                    alt={att.file.name}
+                    className="h-16 w-16 object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => removeAttachment(att.id)}
@@ -847,19 +898,21 @@ function Chat() {
               value={input}
               onValueChange={setInput}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  send()
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
                 }
               }}
               onInput={(e) => {
-                const el = e.currentTarget
-                el.style.height = 'auto'
-                el.style.height = `${el.scrollHeight}px`
+                const el = e.currentTarget;
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
               }}
               onPaste={handlePaste}
               placeholder={
-                attachments.length > 0 ? 'Add a message or send images...' : 'Send a message...'
+                attachments.length > 0
+                  ? "Add a message or send images..."
+                  : "Send a message..."
               }
               disabled={!connected || isStreaming}
               rows={1}
@@ -881,7 +934,9 @@ function Chat() {
                 variant="primary"
                 shape="square"
                 aria-label="Send message"
-                disabled={(!input.trim() && attachments.length === 0) || !connected}
+                disabled={
+                  (!input.trim() && attachments.length === 0) || !connected
+                }
                 icon={<PaperPlaneRightIcon size={18} />}
                 className="mb-0.5"
               />
@@ -893,7 +948,7 @@ function Chat() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function App() {
@@ -909,5 +964,5 @@ export default function App() {
         <Chat />
       </Suspense>
     </Toasty>
-  )
+  );
 }
