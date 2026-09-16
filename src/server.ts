@@ -40,20 +40,55 @@ export class DooAgent extends AIChatAgent<Env> {
     await this.removeMcpServer(serverId)
   }
 
+  private async retrieveContext(question: string): Promise<string> {
+    const embedding = (await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [question],
+    })) as { data: number[][] }
+
+    const results = await this.env.VECTORIZE.query(embedding.data[0], {
+      topK: 5,
+      returnMetadata: true,
+    })
+
+    if (!results.matches || results.matches.length === 0) {
+      return 'No relevant documentation found.'
+    }
+
+    return results.matches
+      .map((m) => `--- [${m.metadata?.source ?? 'unknown'}] ---\n${m.metadata?.text ?? ''}`)
+      .join('\n\n')
+  }
+
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
     const mcpTools = this.mcp.getAITools()
     const workersai = createWorkersAI({ binding: this.env.AI })
 
+    const lastUser = [...this.messages].reverse().find((m) => m.role === 'user')
+    const lastUserText =
+      lastUser?.parts
+        ?.filter((p) => p.type === 'text')
+        .map((p) => (p as { text: string }).text)
+        .join(' ') ?? ''
+
+    const retrievedContext = await this.retrieveContext(lastUserText)
+
     const result = streamText({
-      model: workersai('@cf/moonshotai/kimi-k2.7-code', {
+      model: workersai('@cf/openai/gpt-oss-20b', {
         sessionAffinity: this.sessionAffinity,
       }),
-      system: `You are the assistant for the Doo programming language… use retrieved docs, don't invent syntax.
+      system: `You are the assistant for the Doo programming language — a statically typed language with a Rust/LLVM compiler toolchain.
 
-${getSchedulePrompt({ date: new Date() })}
+Answer questions about Doo's syntax, type system, standard library, FFI, web framework, and tooling.
 
-If the user asks to schedule a task, use the schedule tool to schedule the task.`,
-      // Prune old tool calls and reasoning to save tokens on long conversations
+Rules:
+- Ground every answer in the retrieved documentation below.
+- If the retrieved documentation does not cover the question, say so. Never invent Doo syntax.
+- Use fenced code blocks tagged "doo" for code examples.
+
+ ${getSchedulePrompt({ date: new Date() })}
+
+Retrieved documentation:
+ ${retrievedContext}`,
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
         toolCalls: 'before-last-2-messages',
@@ -66,11 +101,8 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
         // Server-side tool: runs automatically on the server
         getWeather: tool({
           description: 'Get the current weather for a city',
-          inputSchema: z.object({
-            city: z.string().describe('City name'),
-          }),
+          inputSchema: z.object({ city: z.string() }),
           execute: async ({ city }) => {
-            // Replace with a real weather API in production
             const conditions = ['sunny', 'cloudy', 'rainy', 'snowy']
             const temp = Math.floor(Math.random() * 30) + 5
             return {
@@ -81,50 +113,11 @@ If the user asks to schedule a task, use the schedule tool to schedule the task.
             }
           },
         }),
-
-        // Client-side tool: no execute function — the browser handles it
-        getUserTimezone: tool({
-          description:
-            "Get the user's timezone from their browser. Use this when you need to know the user's local time.",
-          inputSchema: z.object({}),
-        }),
-
-        // Approval tool: requires user confirmation before executing
-        calculate: tool({
-          description:
-            'Perform a math calculation with two numbers. Requires user approval for large numbers.',
-          inputSchema: z.object({
-            a: z.number().describe('First number'),
-            b: z.number().describe('Second number'),
-            operator: z.enum(['+', '-', '*', '/', '%']).describe('Arithmetic operator'),
-          }),
-          needsApproval: async ({ a, b }) => Math.abs(a) > 1000 || Math.abs(b) > 1000,
-          execute: async ({ a, b, operator }) => {
-            const ops: Record<string, (x: number, y: number) => number> = {
-              '+': (x, y) => x + y,
-              '-': (x, y) => x - y,
-              '*': (x, y) => x * y,
-              '/': (x, y) => x / y,
-              '%': (x, y) => x % y,
-            }
-            if (operator === '/' && b === 0) {
-              return { error: 'Division by zero' }
-            }
-            return {
-              expression: `${a} ${operator} ${b}`,
-              result: ops[operator](a, b),
-            }
-          },
-        }),
-
         scheduleTask: tool({
-          description:
-            'Schedule a task to be executed at a later time. Use this when the user asks to be reminded or wants something done later.',
+          description: 'Schedule a task to be executed at a later time.',
           inputSchema: scheduleSchema,
           execute: async ({ when, description }) => {
-            if (when.type === 'no-schedule') {
-              return 'Not a valid schedule input'
-            }
+            if (when.type === 'no-schedule') return 'Not a valid schedule input'
             const input =
               when.type === 'scheduled'
                 ? when.date
