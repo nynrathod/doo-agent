@@ -25,15 +25,15 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "ChatAgent",
-				"name": "ChatAgent"
+				"class_name": "DooAgent",
+				"name": "DooAgent"
 			}
 		]
 	},
 	"migrations": [
 		{
 			"new_sqlite_classes": [
-				"ChatAgent"
+				"DooAgent"
 			],
 			"tag": "v1"
 		}

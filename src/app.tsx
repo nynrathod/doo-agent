@@ -1,9 +1,9 @@
-import { Suspense, useCallback, useState, useEffect, useRef } from "react";
-import { useAgent } from "agents/react";
-import { useAgentChat } from "@cloudflare/ai-chat/react";
-import { getToolName, isToolUIPart, type UIMessage } from "ai";
-import type { MCPServersState } from "agents";
-import type { ChatAgent } from "./server";
+import { Suspense, useCallback, useState, useEffect, useRef } from 'react'
+import { useAgent } from 'agents/react'
+import { useAgentChat } from '@cloudflare/ai-chat/react'
+import { getToolName, isToolUIPart, type UIMessage } from 'ai'
+import type { MCPServersState } from 'agents'
+import type { DooAgent } from './server'
 import {
   Badge,
   Button,
@@ -12,11 +12,11 @@ import {
   PoweredByCloudflare,
   Surface,
   Switch,
-  Text
-} from "@cloudflare/kumo";
-import { Toasty, useKumoToastManager } from "@cloudflare/kumo/components/toast";
-import { Streamdown } from "streamdown";
-import { code } from "@streamdown/code";
+  Text,
+} from '@cloudflare/kumo'
+import { Toasty, useKumoToastManager } from '@cloudflare/kumo/components/toast'
+import { Streamdown } from 'streamdown'
+import { code } from '@streamdown/code'
 import {
   PaperPlaneRightIcon,
   StopIcon,
@@ -37,16 +37,16 @@ import {
   XIcon,
   WrenchIcon,
   PaperclipIcon,
-  ImageIcon
-} from "@phosphor-icons/react";
+  ImageIcon,
+} from '@phosphor-icons/react'
 
 // ── Attachment helpers ────────────────────────────────────────────────
 
 interface Attachment {
-  id: string;
-  file: File;
-  preview: string;
-  mediaType: string;
+  id: string
+  file: File
+  preview: string
+  mediaType: string
 }
 
 function createAttachment(file: File): Attachment {
@@ -54,34 +54,34 @@ function createAttachment(file: File): Attachment {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     file,
     preview: URL.createObjectURL(file),
-    mediaType: file.type || "application/octet-stream"
-  };
+    mediaType: file.type || 'application/octet-stream',
+  }
 }
 
 function fileToDataUri(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
 }
 
 // ── Small components ──────────────────────────────────────────────────
 
 function ThemeToggle() {
   const [dark, setDark] = useState(
-    () => document.documentElement.getAttribute("data-mode") === "dark"
-  );
+    () => document.documentElement.getAttribute('data-mode') === 'dark'
+  )
 
   const toggle = useCallback(() => {
-    const next = !dark;
-    setDark(next);
-    const mode = next ? "dark" : "light";
-    document.documentElement.setAttribute("data-mode", mode);
-    document.documentElement.style.colorScheme = mode;
-    localStorage.setItem("theme", mode);
-  }, [dark]);
+    const next = !dark
+    setDark(next)
+    const mode = next ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-mode', mode)
+    document.documentElement.style.colorScheme = mode
+    localStorage.setItem('theme', mode)
+  }, [dark])
 
   return (
     <Button
@@ -91,47 +91,43 @@ function ThemeToggle() {
       onClick={toggle}
       aria-label="Toggle theme"
     />
-  );
+  )
 }
 
 // ── Tool rendering ────────────────────────────────────────────────────
 
 function ToolIO({ label, value }: { label: string; value: unknown }) {
-  if (value === undefined || value === null) return null;
-  const text =
-    typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  if (!text) return null;
+  if (value === undefined || value === null) return null
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+  if (!text) return null
   return (
     <div className="mt-1">
       <Text size="xs" variant="secondary" bold>
         {label}
       </Text>
-      <pre className="mt-0.5 font-mono text-xs text-kumo-subtle whitespace-pre-wrap overflow-auto max-h-64">
+      <pre className="text-kumo-subtle mt-0.5 max-h-64 overflow-auto font-mono text-xs whitespace-pre-wrap">
         {text}
       </pre>
     </div>
-  );
+  )
 }
 
 function ToolPartView({
   part,
-  addToolApprovalResponse
+  addToolApprovalResponse,
 }: {
-  part: UIMessage["parts"][number];
-  addToolApprovalResponse: (response: {
-    id: string;
-    approved: boolean;
-  }) => void;
+  part: UIMessage['parts'][number]
+  addToolApprovalResponse: (response: { id: string; approved: boolean }) => void
 }) {
-  if (!isToolUIPart(part)) return null;
-  const toolName = getToolName(part);
+  if (!isToolUIPart(part)) return null
+  const toolName = getToolName(part)
 
   // Completed
-  if (part.state === "output-available") {
+  if (part.state === 'output-available') {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
-          <div className="flex items-center gap-2 mb-1">
+        <Surface className="ring-kumo-line max-w-[85%] rounded-xl px-4 py-2.5 ring">
+          <div className="mb-1 flex items-center gap-2">
             <GearIcon size={14} className="text-kumo-inactive" />
             <Text size="xs" variant="secondary" bold>
               {toolName}
@@ -142,22 +138,22 @@ function ToolPartView({
           <ToolIO label="Output" value={part.output} />
         </Surface>
       </div>
-    );
+    )
   }
 
   // Needs approval
-  if ("approval" in part && part.state === "approval-requested") {
-    const approvalId = (part.approval as { id?: string })?.id;
+  if ('approval' in part && part.state === 'approval-requested') {
+    const approvalId = (part.approval as { id?: string })?.id
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-3 rounded-xl ring-2 ring-kumo-warning">
-          <div className="flex items-center gap-2 mb-2">
+        <Surface className="ring-kumo-warning max-w-[85%] rounded-xl px-4 py-3 ring-2">
+          <div className="mb-2 flex items-center gap-2">
             <GearIcon size={14} className="text-kumo-warning" />
             <Text size="sm" bold>
               Approval needed: {toolName}
             </Text>
           </div>
-          <div className="font-mono mb-3">
+          <div className="mb-3 font-mono">
             <Text size="xs" variant="secondary">
               {JSON.stringify(part.input, null, 2)}
             </Text>
@@ -169,7 +165,7 @@ function ToolPartView({
               icon={<CheckCircleIcon size={14} />}
               onClick={() => {
                 if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: true });
+                  addToolApprovalResponse({ id: approvalId, approved: true })
                 }
               }}
             >
@@ -181,7 +177,7 @@ function ToolPartView({
               icon={<XCircleIcon size={14} />}
               onClick={() => {
                 if (approvalId) {
-                  addToolApprovalResponse({ id: approvalId, approved: false });
+                  addToolApprovalResponse({ id: approvalId, approved: false })
                 }
               }}
             >
@@ -190,18 +186,17 @@ function ToolPartView({
           </div>
         </Surface>
       </div>
-    );
+    )
   }
 
   // Rejected / denied
   if (
-    part.state === "output-denied" ||
-    ("approval" in part &&
-      (part.approval as { approved?: boolean })?.approved === false)
+    part.state === 'output-denied' ||
+    ('approval' in part && (part.approval as { approved?: boolean })?.approved === false)
   ) {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <Surface className="ring-kumo-line max-w-[85%] rounded-xl px-4 py-2.5 ring">
           <div className="flex items-center gap-2">
             <XCircleIcon size={14} className="text-kumo-danger" />
             <Text size="xs" variant="secondary" bold>
@@ -211,16 +206,16 @@ function ToolPartView({
           </div>
         </Surface>
       </div>
-    );
+    )
   }
 
   // Errored
-  if (part.state === "output-error") {
-    const errorText = part.errorText;
+  if (part.state === 'output-error') {
+    const errorText = part.errorText
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring-2 ring-kumo-danger">
-          <div className="flex items-center gap-2 mb-1">
+        <Surface className="ring-kumo-danger max-w-[85%] rounded-xl px-4 py-2.5 ring-2">
+          <div className="mb-1 flex items-center gap-2">
             <XCircleIcon size={14} className="text-kumo-danger" />
             <Text size="xs" variant="secondary" bold>
               {toolName}
@@ -229,19 +224,19 @@ function ToolPartView({
           </div>
           <div className="font-mono">
             <Text size="xs" variant="secondary">
-              {errorText || "Tool call failed"}
+              {errorText || 'Tool call failed'}
             </Text>
           </div>
         </Surface>
       </div>
-    );
+    )
   }
 
   // Executing
-  if (part.state === "input-available" || part.state === "input-streaming") {
+  if (part.state === 'input-available' || part.state === 'input-streaming') {
     return (
       <div className="flex justify-start">
-        <Surface className="max-w-[85%] px-4 py-2.5 rounded-xl ring ring-kumo-line">
+        <Surface className="ring-kumo-line max-w-[85%] rounded-xl px-4 py-2.5 ring">
           <div className="flex items-center gap-2">
             <GearIcon size={14} className="text-kumo-inactive animate-spin" />
             <Text size="xs" variant="secondary">
@@ -251,230 +246,217 @@ function ToolPartView({
           <ToolIO label="Input" value={part.input} />
         </Surface>
       </div>
-    );
+    )
   }
 
-  return null;
+  return null
 }
 
 // ── Main chat ─────────────────────────────────────────────────────────
 
 function Chat() {
-  const [connected, setConnected] = useState(false);
-  const [input, setInput] = useState("");
-  const [showDebug, setShowDebug] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const toasts = useKumoToastManager();
+  const [connected, setConnected] = useState(false)
+  const [input, setInput] = useState('')
+  const [showDebug, setShowDebug] = useState(false)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [isDragging, setIsDragging] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const toasts = useKumoToastManager()
   const [mcpState, setMcpState] = useState<MCPServersState>({
     prompts: [],
     resources: [],
     servers: {},
-    tools: []
-  });
-  const [showMcpPanel, setShowMcpPanel] = useState(false);
-  const [mcpName, setMcpName] = useState("");
-  const [mcpUrl, setMcpUrl] = useState("");
-  const [isAddingServer, setIsAddingServer] = useState(false);
-  const mcpPanelRef = useRef<HTMLDivElement>(null);
+    tools: [],
+  })
+  const [showMcpPanel, setShowMcpPanel] = useState(false)
+  const [mcpName, setMcpName] = useState('')
+  const [mcpUrl, setMcpUrl] = useState('')
+  const [isAddingServer, setIsAddingServer] = useState(false)
+  const mcpPanelRef = useRef<HTMLDivElement>(null)
 
-  const agent = useAgent<ChatAgent>({
-    agent: "ChatAgent",
+  const agent = useAgent<DooAgent>({
+    agent: 'DooAgent',
     onOpen: useCallback(() => setConnected(true), []),
     onClose: useCallback(() => setConnected(false), []),
-    onError: useCallback(
-      (error: Event) => console.error("WebSocket error:", error),
-      []
-    ),
+    onError: useCallback((error: Event) => console.error('WebSocket error:', error), []),
     onMcpUpdate: useCallback((state: MCPServersState) => {
-      setMcpState(state);
+      setMcpState(state)
     }, []),
     onMessage: useCallback(
       (message: MessageEvent) => {
         try {
-          const data = JSON.parse(String(message.data));
-          if (data.type === "scheduled-task") {
+          const data = JSON.parse(String(message.data))
+          if (data.type === 'scheduled-task') {
             toasts.add({
-              title: "Scheduled task completed",
+              title: 'Scheduled task completed',
               description: data.description,
-              timeout: 0
-            });
+              timeout: 0,
+            })
           }
         } catch {
           // Not JSON or not our event
         }
       },
       [toasts]
-    )
-  });
+    ),
+  })
 
   // Close MCP panel when clicking outside
   useEffect(() => {
-    if (!showMcpPanel) return;
+    if (!showMcpPanel) return
     function handleClickOutside(e: MouseEvent) {
-      if (
-        mcpPanelRef.current &&
-        !mcpPanelRef.current.contains(e.target as Node)
-      ) {
-        setShowMcpPanel(false);
+      if (mcpPanelRef.current && !mcpPanelRef.current.contains(e.target as Node)) {
+        setShowMcpPanel(false)
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showMcpPanel]);
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMcpPanel])
 
   const handleAddServer = async () => {
-    if (!mcpName.trim() || !mcpUrl.trim()) return;
-    setIsAddingServer(true);
+    if (!mcpName.trim() || !mcpUrl.trim()) return
+    setIsAddingServer(true)
     try {
-      await agent.stub.addServer(mcpName.trim(), mcpUrl.trim());
-      setMcpName("");
-      setMcpUrl("");
+      await agent.stub.addServer(mcpName.trim(), mcpUrl.trim())
+      setMcpName('')
+      setMcpUrl('')
     } catch (e) {
-      console.error("Failed to add MCP server:", e);
+      console.error('Failed to add MCP server:', e)
     } finally {
-      setIsAddingServer(false);
+      setIsAddingServer(false)
     }
-  };
+  }
 
   const handleRemoveServer = async (serverId: string) => {
     try {
-      await agent.stub.removeServer(serverId);
+      await agent.stub.removeServer(serverId)
     } catch (e) {
-      console.error("Failed to remove MCP server:", e);
+      console.error('Failed to remove MCP server:', e)
     }
-  };
+  }
 
-  const serverEntries = Object.entries(mcpState.servers);
-  const mcpToolCount = mcpState.tools.length;
+  const serverEntries = Object.entries(mcpState.servers)
+  const mcpToolCount = mcpState.tools.length
 
-  const {
-    messages,
-    sendMessage,
-    clearHistory,
-    addToolApprovalResponse,
-    stop,
-    status
-  } = useAgentChat({
-    agent,
-    experimental_throttle: 100,
-    onToolCall: async ({ toolCall, addToolOutput }) => {
-      if (toolCall.toolName === "getUserTimezone") {
-        addToolOutput({
-          toolCallId: toolCall.toolCallId,
-          output: {
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            localTime: new Date().toLocaleTimeString()
-          }
-        });
-      }
-    }
-  });
+  const { messages, sendMessage, clearHistory, addToolApprovalResponse, stop, status } =
+    useAgentChat({
+      agent,
+      experimental_throttle: 100,
+      onToolCall: async ({ toolCall, addToolOutput }) => {
+        if (toolCall.toolName === 'getUserTimezone') {
+          addToolOutput({
+            toolCallId: toolCall.toolCallId,
+            output: {
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              localTime: new Date().toLocaleTimeString(),
+            },
+          })
+        }
+      },
+    })
 
-  const isStreaming = status === "streaming" || status === "submitted";
+  const isStreaming = status === 'streaming' || status === 'submitted'
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   // Re-focus the input after streaming ends
   useEffect(() => {
     if (!isStreaming && textareaRef.current) {
-      textareaRef.current.focus();
+      textareaRef.current.focus()
     }
-  }, [isStreaming]);
+  }, [isStreaming])
 
   const addFiles = useCallback((files: FileList | File[]) => {
-    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (images.length === 0) return;
-    setAttachments((prev) => [...prev, ...images.map(createAttachment)]);
-  }, []);
+    const images = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    if (images.length === 0) return
+    setAttachments((prev) => [...prev, ...images.map(createAttachment)])
+  }, [])
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => {
-      const att = prev.find((a) => a.id === id);
-      if (att) URL.revokeObjectURL(att.preview);
-      return prev.filter((a) => a.id !== id);
-    });
-  }, []);
+      const att = prev.find((a) => a.id === id)
+      if (att) URL.revokeObjectURL(att.preview)
+      return prev.filter((a) => a.id !== id)
+    })
+  }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.types.includes("Files")) setIsDragging(true);
-  }, []);
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer.types.includes('Files')) setIsDragging(true)
+  }, [])
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.currentTarget === e.target) setIsDragging(false);
-  }, []);
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.currentTarget === e.target) setIsDragging(false)
+  }, [])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+      if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files)
     },
     [addFiles]
-  );
+  )
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      const files: File[] = [];
+      const items = e.clipboardData?.items
+      if (!items) return
+      const files: File[] = []
       for (const item of items) {
-        if (item.kind === "file") {
-          const file = item.getAsFile();
-          if (file) files.push(file);
+        if (item.kind === 'file') {
+          const file = item.getAsFile()
+          if (file) files.push(file)
         }
       }
       if (files.length > 0) {
-        e.preventDefault();
-        addFiles(files);
+        e.preventDefault()
+        addFiles(files)
       }
     },
     [addFiles]
-  );
+  )
 
   const send = useCallback(async () => {
-    const text = input.trim();
-    if ((!text && attachments.length === 0) || isStreaming) return;
-    setInput("");
+    const text = input.trim()
+    if ((!text && attachments.length === 0) || isStreaming) return
+    setInput('')
 
     const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "file"; mediaType: string; url: string }
-    > = [];
-    if (text) parts.push({ type: "text", text });
+      { type: 'text'; text: string } | { type: 'file'; mediaType: string; url: string }
+    > = []
+    if (text) parts.push({ type: 'text', text })
 
     for (const att of attachments) {
-      const dataUri = await fileToDataUri(att.file);
-      parts.push({ type: "file", mediaType: att.mediaType, url: dataUri });
+      const dataUri = await fileToDataUri(att.file)
+      parts.push({ type: 'file', mediaType: att.mediaType, url: dataUri })
     }
 
-    for (const att of attachments) URL.revokeObjectURL(att.preview);
-    setAttachments([]);
+    for (const att of attachments) URL.revokeObjectURL(att.preview)
+    setAttachments([])
 
-    sendMessage({ role: "user", parts });
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  }, [input, attachments, isStreaming, sendMessage]);
+    sendMessage({ role: 'user', parts })
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+  }, [input, attachments, isStreaming, sendMessage])
 
   return (
     <div
-      className="flex flex-col h-screen bg-kumo-elevated relative"
+      className="bg-kumo-elevated relative flex h-screen flex-col"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {isDragging && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-kumo-elevated/80 backdrop-blur-sm border-2 border-dashed border-kumo-brand rounded-xl m-2 pointer-events-none">
-          <div className="flex flex-col items-center gap-2 text-kumo-brand">
+        <div className="bg-kumo-elevated/80 border-kumo-brand pointer-events-none absolute inset-0 z-50 m-2 flex items-center justify-center rounded-xl border-2 border-dashed backdrop-blur-sm">
+          <div className="text-kumo-brand flex flex-col items-center gap-2">
             <ImageIcon size={40} />
             <Text variant="heading3" as="span">
               Drop images here
@@ -484,11 +466,11 @@ function Chat() {
       )}
 
       {/* Header */}
-      <header className="px-5 py-4 bg-kumo-base border-b border-kumo-line">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      <header className="bg-kumo-base border-kumo-line border-b px-5 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-kumo-default">
-              <span className="mr-2">⛅</span>Agent Starter
+            <h1 className="text-kumo-default text-lg font-semibold">
+              <span className="mr-2">⛅</span>Doo Agent
             </h1>
             <Badge variant="secondary">
               <ChatCircleDotsIcon size={12} weight="bold" className="mr-1" />
@@ -500,10 +482,10 @@ function Chat() {
               <CircleIcon
                 size={8}
                 weight="fill"
-                className={connected ? "text-kumo-success" : "text-kumo-danger"}
+                className={connected ? 'text-kumo-success' : 'text-kumo-danger'}
               />
               <Text size="xs" variant="secondary">
-                {connected ? "Connected" : "Disconnected"}
+                {connected ? 'Connected' : 'Disconnected'}
               </Text>
             </div>
             <div className="flex items-center gap-1.5">
@@ -533,22 +515,17 @@ function Chat() {
 
               {/* MCP Dropdown Panel */}
               {showMcpPanel && (
-                <div className="absolute right-0 top-full mt-2 w-96 z-50">
-                  <Surface className="rounded-xl ring ring-kumo-line shadow-lg p-4 space-y-4">
+                <div className="absolute top-full right-0 z-50 mt-2 w-96">
+                  <Surface className="ring-kumo-line space-y-4 rounded-xl p-4 shadow-lg ring">
                     {/* Panel Header */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <PlugsConnectedIcon
-                          size={16}
-                          className="text-kumo-accent"
-                        />
+                        <PlugsConnectedIcon size={16} className="text-kumo-accent" />
                         <Text size="sm" bold>
                           MCP Servers
                         </Text>
                         {serverEntries.length > 0 && (
-                          <Badge variant="secondary">
-                            {serverEntries.length}
-                          </Badge>
+                          <Badge variant="secondary">{serverEntries.length}</Badge>
                         )}
                       </div>
                       <Button
@@ -564,8 +541,8 @@ function Chat() {
                     {/* Add Server Form */}
                     <form
                       onSubmit={(e) => {
-                        e.preventDefault();
-                        handleAddServer();
+                        e.preventDefault()
+                        handleAddServer()
                       }}
                       className="space-y-2"
                     >
@@ -575,7 +552,7 @@ function Chat() {
                         onChange={(e) => setMcpName(e.target.value)}
                         aria-label="MCP server name"
                         placeholder="Server name"
-                        className="w-full px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent"
+                        className="border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:ring-kumo-accent w-full rounded-lg border px-3 py-1.5 text-sm focus:ring-1 focus:outline-none"
                       />
                       <div className="flex gap-2">
                         <input
@@ -584,74 +561,71 @@ function Chat() {
                           onChange={(e) => setMcpUrl(e.target.value)}
                           aria-label="MCP server URL"
                           placeholder="https://mcp.example.com"
-                          className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:outline-none focus:ring-1 focus:ring-kumo-accent font-mono"
+                          className="border-kumo-line bg-kumo-base text-kumo-default placeholder:text-kumo-inactive focus:ring-kumo-accent flex-1 rounded-lg border px-3 py-1.5 font-mono text-sm focus:ring-1 focus:outline-none"
                         />
                         <Button
                           type="submit"
                           variant="primary"
                           size="sm"
                           icon={<PlusIcon size={14} />}
-                          disabled={
-                            isAddingServer || !mcpName.trim() || !mcpUrl.trim()
-                          }
+                          disabled={isAddingServer || !mcpName.trim() || !mcpUrl.trim()}
                         >
-                          {isAddingServer ? "..." : "Add"}
+                          {isAddingServer ? '...' : 'Add'}
                         </Button>
                       </div>
                     </form>
 
                     {/* Server List */}
                     {serverEntries.length > 0 && (
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                      <div className="max-h-60 space-y-2 overflow-y-auto">
                         {serverEntries.map(([id, server]) => (
                           <div
                             key={id}
-                            className="flex items-start justify-between p-2.5 rounded-lg border border-kumo-line"
+                            className="border-kumo-line flex items-start justify-between rounded-lg border p-2.5"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-kumo-default truncate">
+                                <span className="text-kumo-default truncate text-sm font-medium">
                                   {server.name}
                                 </span>
                                 <Badge
                                   variant={
-                                    server.state === "ready"
-                                      ? "primary"
-                                      : server.state === "failed"
-                                        ? "destructive"
-                                        : "secondary"
+                                    server.state === 'ready'
+                                      ? 'primary'
+                                      : server.state === 'failed'
+                                        ? 'destructive'
+                                        : 'secondary'
                                   }
                                 >
                                   {server.state}
                                 </Badge>
                               </div>
-                              <span className="text-xs font-mono text-kumo-subtle truncate block mt-0.5">
+                              <span className="text-kumo-subtle mt-0.5 block truncate font-mono text-xs">
                                 {server.server_url}
                               </span>
-                              {server.state === "failed" && server.error && (
-                                <span className="text-xs text-red-500 block mt-0.5">
+                              {server.state === 'failed' && server.error && (
+                                <span className="mt-0.5 block text-xs text-red-500">
                                   {server.error}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 shrink-0 ml-2">
-                              {server.state === "authenticating" &&
-                                server.auth_url && (
-                                  <Button
-                                    variant="primary"
-                                    size="sm"
-                                    icon={<SignInIcon size={12} />}
-                                    onClick={() =>
-                                      window.open(
-                                        server.auth_url as string,
-                                        "oauth",
-                                        "width=600,height=800"
-                                      )
-                                    }
-                                  >
-                                    Auth
-                                  </Button>
-                                )}
+                            <div className="ml-2 flex shrink-0 items-center gap-1">
+                              {server.state === 'authenticating' && server.auth_url && (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  icon={<SignInIcon size={12} />}
+                                  onClick={() =>
+                                    window.open(
+                                      server.auth_url as string,
+                                      'oauth',
+                                      'width=600,height=800'
+                                    )
+                                  }
+                                >
+                                  Auth
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -668,13 +642,12 @@ function Chat() {
 
                     {/* Tool Summary */}
                     {mcpToolCount > 0 && (
-                      <div className="pt-2 border-t border-kumo-line">
+                      <div className="border-kumo-line border-t pt-2">
                         <div className="flex items-center gap-2">
                           <WrenchIcon size={14} className="text-kumo-subtle" />
-                          <span className="text-xs text-kumo-subtle">
+                          <span className="text-kumo-subtle text-xs">
                             {mcpToolCount} tool
-                            {mcpToolCount !== 1 ? "s" : ""} available from MCP
-                            servers
+                            {mcpToolCount !== 1 ? 's' : ''} available from MCP servers
                           </span>
                         </div>
                       </div>
@@ -683,11 +656,7 @@ function Chat() {
                 </div>
               )}
             </div>
-            <Button
-              variant="secondary"
-              icon={<TrashIcon size={16} />}
-              onClick={clearHistory}
-            >
+            <Button variant="secondary" icon={<TrashIcon size={16} />} onClick={clearHistory}>
               Clear
             </Button>
           </div>
@@ -696,7 +665,7 @@ function Chat() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
+        <div className="mx-auto max-w-3xl space-y-5 px-5 py-6">
           {messages.length === 0 && (
             <Empty
               icon={<ChatCircleDotsIcon size={32} />}
@@ -705,9 +674,9 @@ function Chat() {
                 <div className="flex flex-wrap justify-center gap-2">
                   {[
                     "What's the weather in Paris?",
-                    "What timezone am I in?",
-                    "Calculate 5000 * 3",
-                    "Remind me in 5 minutes to take a break"
+                    'What timezone am I in?',
+                    'Calculate 5000 * 3',
+                    'Remind me in 5 minutes to take a break',
                   ].map((prompt) => (
                     <Button
                       key={prompt}
@@ -716,9 +685,9 @@ function Chat() {
                       disabled={isStreaming}
                       onClick={() => {
                         sendMessage({
-                          role: "user",
-                          parts: [{ type: "text", text: prompt }]
-                        });
+                          role: 'user',
+                          parts: [{ type: 'text', text: prompt }],
+                        })
                       }}
                     >
                       {prompt}
@@ -730,21 +699,20 @@ function Chat() {
           )}
 
           {messages.map((message: UIMessage, index: number) => {
-            const isUser = message.role === "user";
-            const isLastAssistant =
-              message.role === "assistant" && index === messages.length - 1;
+            const isUser = message.role === 'user'
+            const isLastAssistant = message.role === 'assistant' && index === messages.length - 1
 
             return (
               <div key={message.id} className="space-y-2">
                 {showDebug && (
-                  <pre className="text-[11px] text-kumo-subtle bg-kumo-control rounded-lg p-3 overflow-auto max-h-64">
+                  <pre className="text-kumo-subtle bg-kumo-control max-h-64 overflow-auto rounded-lg p-3 text-[11px]">
                     {JSON.stringify(message, null, 2)}
                   </pre>
                 )}
 
                 {/* Render parts in chronological (array) order */}
                 {message.parts.map((part, i) => {
-                  const key = `${message.id}-${i}`;
+                  const key = `${message.id}-${i}`
 
                   if (isToolUIPart(part)) {
                     return (
@@ -753,76 +721,61 @@ function Chat() {
                         part={part}
                         addToolApprovalResponse={addToolApprovalResponse}
                       />
-                    );
+                    )
                   }
 
-                  if (part.type === "reasoning") {
-                    if (!part.text.trim()) return null;
-                    const isDone = part.state === "done" || !isStreaming;
+                  if (part.type === 'reasoning') {
+                    if (!part.text.trim()) return null
+                    const isDone = part.state === 'done' || !isStreaming
                     return (
                       <div key={key} className="flex justify-start">
-                        <details className="max-w-[85%] w-full" open={!isDone}>
-                          <summary className="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-sm select-none">
+                        <details className="w-full max-w-[85%]" open={!isDone}>
+                          <summary className="flex cursor-pointer items-center gap-2 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-2 text-sm select-none">
                             <BrainIcon size={14} className="text-purple-400" />
-                            <span className="font-medium text-kumo-default">
-                              Reasoning
-                            </span>
+                            <span className="text-kumo-default font-medium">Reasoning</span>
                             {isDone ? (
-                              <span className="text-xs text-kumo-success">
-                                Complete
-                              </span>
+                              <span className="text-kumo-success text-xs">Complete</span>
                             ) : (
-                              <span className="text-xs text-kumo-brand">
-                                Thinking...
-                              </span>
+                              <span className="text-kumo-brand text-xs">Thinking...</span>
                             )}
-                            <CaretDownIcon
-                              size={14}
-                              className="ml-auto text-kumo-inactive"
-                            />
+                            <CaretDownIcon size={14} className="text-kumo-inactive ml-auto" />
                           </summary>
-                          <pre className="mt-2 px-3 py-2 rounded-lg bg-kumo-control text-xs text-kumo-default whitespace-pre-wrap overflow-auto max-h-64">
+                          <pre className="bg-kumo-control text-kumo-default mt-2 max-h-64 overflow-auto rounded-lg px-3 py-2 text-xs whitespace-pre-wrap">
                             {part.text}
                           </pre>
                         </details>
                       </div>
-                    );
+                    )
                   }
 
-                  if (
-                    part.type === "file" &&
-                    part.mediaType.startsWith("image/")
-                  ) {
+                  if (part.type === 'file' && part.mediaType.startsWith('image/')) {
                     return (
-                      <div
-                        key={key}
-                        className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-                      >
+                      <div key={key} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                         <img
                           src={part.url}
                           alt="Attachment"
-                          className="max-h-64 rounded-xl border border-kumo-line object-contain"
+                          className="border-kumo-line max-h-64 rounded-xl border object-contain"
                         />
                       </div>
-                    );
+                    )
                   }
 
-                  if (part.type === "text") {
-                    if (!part.text) return null;
+                  if (part.type === 'text') {
+                    if (!part.text) return null
 
                     if (isUser) {
                       return (
                         <div key={key} className="flex justify-end">
-                          <div className="max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md bg-kumo-contrast text-kumo-inverse leading-relaxed">
+                          <div className="bg-kumo-contrast text-kumo-inverse max-w-[85%] rounded-2xl rounded-br-md px-4 py-2.5 leading-relaxed">
                             {part.text}
                           </div>
                         </div>
-                      );
+                      )
                     }
 
                     return (
                       <div key={key} className="flex justify-start">
-                        <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-kumo-base text-kumo-default leading-relaxed">
+                        <div className="bg-kumo-base text-kumo-default max-w-[85%] rounded-2xl rounded-bl-md leading-relaxed">
                           <Streamdown
                             className="sd-theme rounded-2xl rounded-bl-md p-3"
                             plugins={{ code }}
@@ -833,13 +786,13 @@ function Chat() {
                           </Streamdown>
                         </div>
                       </div>
-                    );
+                    )
                   }
 
-                  return null;
+                  return null
                 })}
               </div>
-            );
+            )
           })}
 
           <div ref={messagesEndRef} />
@@ -847,13 +800,13 @@ function Chat() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-kumo-line bg-kumo-base">
+      <div className="border-kumo-line bg-kumo-base border-t">
         <form
           onSubmit={(e) => {
-            e.preventDefault();
-            send();
+            e.preventDefault()
+            send()
           }}
-          className="max-w-3xl mx-auto px-5 py-4"
+          className="mx-auto max-w-3xl px-5 py-4"
         >
           <input
             ref={fileInputRef}
@@ -863,27 +816,23 @@ function Chat() {
             aria-label="Upload image attachments"
             className="hidden"
             onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files);
-              e.target.value = "";
+              if (e.target.files) addFiles(e.target.files)
+              e.target.value = ''
             }}
           />
 
           {attachments.length > 0 && (
-            <div className="flex gap-2 mb-2 flex-wrap">
+            <div className="mb-2 flex flex-wrap gap-2">
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="relative group rounded-lg border border-kumo-line bg-kumo-control overflow-hidden"
+                  className="group border-kumo-line bg-kumo-control relative overflow-hidden rounded-lg border"
                 >
-                  <img
-                    src={att.preview}
-                    alt={att.file.name}
-                    className="h-16 w-16 object-cover"
-                  />
+                  <img src={att.preview} alt={att.file.name} className="h-16 w-16 object-cover" />
                   <button
                     type="button"
                     onClick={() => removeAttachment(att.id)}
-                    className="absolute top-0.5 right-0.5 rounded-full bg-kumo-contrast/80 text-kumo-inverse p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="bg-kumo-contrast/80 text-kumo-inverse absolute top-0.5 right-0.5 rounded-full p-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                     aria-label={`Remove ${att.file.name}`}
                   >
                     <XIcon size={10} />
@@ -893,7 +842,7 @@ function Chat() {
             </div>
           )}
 
-          <div className="flex items-end gap-3 rounded-xl border border-kumo-line bg-kumo-base p-3 shadow-sm focus-within:ring-2 focus-within:ring-kumo-ring focus-within:border-transparent transition-shadow">
+          <div className="border-kumo-line bg-kumo-base focus-within:ring-kumo-ring flex items-end gap-3 rounded-xl border p-3 shadow-sm transition-shadow focus-within:border-transparent focus-within:ring-2">
             <Button
               type="button"
               variant="ghost"
@@ -909,25 +858,23 @@ function Chat() {
               value={input}
               onValueChange={setInput}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send()
                 }
               }}
               onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = "auto";
-                el.style.height = `${el.scrollHeight}px`;
+                const el = e.currentTarget
+                el.style.height = 'auto'
+                el.style.height = `${el.scrollHeight}px`
               }}
               onPaste={handlePaste}
               placeholder={
-                attachments.length > 0
-                  ? "Add a message or send images..."
-                  : "Send a message..."
+                attachments.length > 0 ? 'Add a message or send images...' : 'Send a message...'
               }
               disabled={!connected || isStreaming}
               rows={1}
-              className="flex-1 ring-0! focus:ring-0! shadow-none! bg-transparent! outline-none! resize-none max-h-40"
+              className="max-h-40 flex-1 resize-none bg-transparent! shadow-none! ring-0! outline-none! focus:ring-0!"
             />
             {isStreaming ? (
               <Button
@@ -945,9 +892,7 @@ function Chat() {
                 variant="primary"
                 shape="square"
                 aria-label="Send message"
-                disabled={
-                  (!input.trim() && attachments.length === 0) || !connected
-                }
+                disabled={(!input.trim() && attachments.length === 0) || !connected}
                 icon={<PaperPlaneRightIcon size={18} />}
                 className="mb-0.5"
               />
@@ -959,7 +904,7 @@ function Chat() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 export default function App() {
@@ -967,7 +912,7 @@ export default function App() {
     <Toasty>
       <Suspense
         fallback={
-          <div className="flex items-center justify-center h-screen text-kumo-inactive">
+          <div className="text-kumo-inactive flex h-screen items-center justify-center">
             Loading...
           </div>
         }
@@ -975,5 +920,5 @@ export default function App() {
         <Chat />
       </Suspense>
     </Toasty>
-  );
+  )
 }
