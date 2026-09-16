@@ -40,23 +40,19 @@ export class DooAgent extends AIChatAgent<Env> {
     await this.removeMcpServer(serverId)
   }
 
-  private async retrieveContext(question: string): Promise<string> {
-    const embedding = (await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
-      text: [question],
-    })) as { data: number[][] }
-
-    const results = await this.env.VECTORIZE.query(embedding.data[0], {
-      topK: 5,
-      returnMetadata: true,
-    })
-
-    if (!results.matches || results.matches.length === 0) {
-      return 'No relevant documentation found.'
+  private async safeTool<T>(name: string, fn: () => Promise<T>): Promise<T | { error: string }> {
+    try {
+      return await fn()
+    } catch (e) {
+      return { error: `Tool ${name} failed: ${String(e)}` }
     }
+  }
 
-    return results.matches
-      .map((m) => `--- [${m.metadata?.source ?? 'unknown'}] ---\n${m.metadata?.text ?? ''}`)
-      .join('\n\n')
+  private async embed(text: string): Promise<number[]> {
+    const result = (await this.env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [text],
+    })) as { data: number[][] }
+    return result.data[0]
   }
 
   async onChatMessage(_onFinish: unknown, options?: OnChatMessageOptions) {
@@ -70,49 +66,103 @@ export class DooAgent extends AIChatAgent<Env> {
         .map((p) => (p as { text: string }).text)
         .join(' ') ?? ''
 
-    const retrievedContext = await this.retrieveContext(lastUserText)
+    const lastUserEmbedding = await this.embed(lastUserText)
+    const seedResults = await this.env.VECTORIZE.query(lastUserEmbedding, {
+      topK: 5,
+      returnMetadata: true,
+    })
+    const seedContext = (seedResults.matches ?? [])
+      .map((m) => `--- [${m.metadata?.source ?? 'unknown'}] ---\n${m.metadata?.text ?? ''}`)
+      .join('\n\n')
 
     const result = streamText({
-      model: workersai('@cf/openai/gpt-oss-20b', {
-        sessionAffinity: this.sessionAffinity,
-      }),
+      model: workersai('@cf/zai-org/glm-4.7-flash'),
       system: `You are the assistant for the Doo programming language — a statically typed language with a Rust/LLVM compiler toolchain.
 
 Answer questions about Doo's syntax, type system, standard library, FFI, web framework, and tooling.
 
 Rules:
-- Ground every answer in the retrieved documentation below.
-- If the retrieved documentation does not cover the question, say so. Never invent Doo syntax.
+- Ground answers in the retrieved documentation provided below, or in results from the search_doo_docs tool.
+- If neither covers the question, say so. Never invent Doo syntax.
 - Use fenced code blocks tagged "doo" for code examples.
 
  ${getSchedulePrompt({ date: new Date() })}
 
-Retrieved documentation:
- ${retrievedContext}`,
+Initial retrieved documentation for the user's latest message:
+ ${seedContext}`,
       messages: pruneMessages({
         messages: await convertToModelMessages(this.messages),
         toolCalls: 'before-last-2-messages',
         reasoning: 'before-last-message',
       }),
       tools: {
-        // MCP tools from connected servers
         ...mcpTools,
 
-        // Server-side tool: runs automatically on the server
-        getWeather: tool({
-          description: 'Get the current weather for a city',
-          inputSchema: z.object({ city: z.string() }),
-          execute: async ({ city }) => {
-            const conditions = ['sunny', 'cloudy', 'rainy', 'snowy']
-            const temp = Math.floor(Math.random() * 30) + 5
+        search_doo_docs: tool({
+          description:
+            'Search the Doo programming language documentation semantically. Use this when the initial context seems insufficient or the user asks about a different topic. Pass query as a plain string, NOT nested JSON.',
+          inputSchema: z.object({
+            query: z.string().describe('What to search the Doo docs for, as plain text'),
+          }),
+          execute: async ({ query }) => {
+            return this.safeTool('search_doo_docs', async () => {
+              const cleaned = query.replace(/[{}"]/g, ' ').replace(/\s+/g, ' ').trim()
+              const embedding = await this.embed(cleaned)
+              const results = await this.env.VECTORIZE.query(embedding, {
+                topK: 5,
+                returnMetadata: true,
+              })
+              const matches = results.matches ?? []
+              if (matches.length === 0) {
+                return { results: [], note: 'No matching documentation found.' }
+              }
+              return {
+                results: matches.map((m) => ({
+                  source: m.metadata?.source ?? 'unknown',
+                  score: m.score ?? 0,
+                  text: m.metadata?.text ?? '',
+                })),
+              }
+            })
+          },
+        }),
+
+        list_doc_sources: tool({
+          description: 'List every documentation file available in the Doo docs corpus.',
+          inputSchema: z.object({}),
+          execute: async () => {
+            // Embed a neutral probe and read distinct sources from metadata.
+            const probe = await this.embed('doo language documentation')
+            const results = await this.env.VECTORIZE.query(probe, {
+              topK: 100,
+              returnMetadata: true,
+            })
+            const sources = new Set<string>()
+            for (const m of results.matches ?? []) {
+              sources.add(String(m.metadata?.source ?? 'unknown'))
+            }
+            return { sources: [...sources].sort() }
+          },
+        }),
+
+        report_doc_issue: tool({
+          description:
+            'Report a problem with the Doo documentation (inaccuracy, missing topic, broken example). Requires user approval before submitting.',
+          inputSchema: z.object({
+            source: z.string().describe('Documentation file the issue is in'),
+            description: z.string().describe('What is wrong or missing'),
+          }),
+          needsApproval: async () => true,
+          execute: async ({ source, description }) => {
+            console.log(`Doc issue reported: [${source}] ${description}`)
             return {
-              city,
-              temperature: temp,
-              condition: conditions[Math.floor(Math.random() * conditions.length)],
-              unit: 'celsius',
+              submitted: true,
+              source,
+              description,
             }
           },
         }),
+
         scheduleTask: tool({
           description: 'Schedule a task to be executed at a later time.',
           inputSchema: scheduleSchema,
@@ -162,7 +212,35 @@ Retrieved documentation:
           },
         }),
       },
-      stopWhen: stepCountIs(20),
+      stopWhen: stepCountIs(8),
+      maxRetries: 2,
+      experimental_repairToolCall: async ({ toolCall }) => {
+        const raw =
+          typeof toolCall.input === 'string' ? toolCall.input : JSON.stringify(toolCall.input ?? {})
+
+        if (toolCall.toolName === 'search_doo_docs') {
+          // unwrap nested/duplicated JSON, pull out plain text
+          let cleaned = raw
+          // try unwrapping one level of nested JSON first
+          try {
+            const parsed = JSON.parse(raw)
+            if (typeof parsed?.query === 'string') cleaned = parsed.query
+          } catch {
+            // fall through to regex strip
+          }
+          cleaned = cleaned
+            .replace(/[{}"[\]]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+          return {
+            type: 'tool-call' as const,
+            toolCallId: toolCall.toolCallId,
+            toolName: toolCall.toolName,
+            input: JSON.stringify({ query: cleaned || 'doo language' }),
+          }
+        }
+        return null
+      },
       abortSignal: options?.abortSignal,
     })
 
@@ -170,13 +248,6 @@ Retrieved documentation:
   }
 
   async executeTask(description: string, _task: Schedule<string>) {
-    // Do the actual work here (send email, call API, etc.)
-    console.log(`Executing scheduled task: ${description}`)
-
-    // Notify connected clients via a broadcast event.
-    // We use broadcast() instead of saveMessages() to avoid injecting
-    // into chat history — that would cause the AI to see the notification
-    // as new context and potentially loop.
     this.broadcast(
       JSON.stringify({
         type: 'scheduled-task',

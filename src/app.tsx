@@ -344,17 +344,6 @@ function Chat() {
     useAgentChat({
       agent,
       experimental_throttle: 100,
-      onToolCall: async ({ toolCall, addToolOutput }) => {
-        if (toolCall.toolName === 'getUserTimezone') {
-          addToolOutput({
-            toolCallId: toolCall.toolCallId,
-            output: {
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              localTime: new Date().toLocaleTimeString(),
-            },
-          })
-        }
-      },
     })
 
   const isStreaming = status === 'streaming' || status === 'submitted'
@@ -673,10 +662,10 @@ function Chat() {
               contents={
                 <div className="flex flex-wrap justify-center gap-2">
                   {[
-                    "What's the weather in Paris?",
-                    'What timezone am I in?',
-                    'Calculate 5000 * 3',
-                    'Remind me in 5 minutes to take a break',
+                    'What is Doo?',
+                    'How do I declare a function in Doo?',
+                    "Show me Doo's control flow syntax",
+                    'How does FFI work in Doo?',
                   ].map((prompt) => (
                     <Button
                       key={prompt}
