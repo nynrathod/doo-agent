@@ -2,14 +2,7 @@ import { createWorkersAI } from 'workers-ai-provider'
 import { callable, routeAgentRequest, type Schedule } from 'agents'
 import { getSchedulePrompt, scheduleSchema } from 'agents/schedule'
 import { AIChatAgent, type OnChatMessageOptions } from '@cloudflare/ai-chat'
-import {
-  convertToModelMessages,
-  createUIMessageStreamResponse,
-  pruneMessages,
-  stepCountIs,
-  streamText,
-  tool,
-} from 'ai'
+import { convertToModelMessages, pruneMessages, stepCountIs, streamText, tool } from 'ai'
 import { z } from 'zod'
 
 export class DooAgent extends AIChatAgent<Env> {
