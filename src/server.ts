@@ -72,7 +72,13 @@ export class DooAgent extends AIChatAgent<Env> {
     }
 
     const mcpTools = this.mcp.getAITools()
-    const workersai = createWorkersAI({ binding: this.env.AI })
+    const workersai = createWorkersAI({
+      binding: this.env.AI,
+      gateway: {
+        id: 'doo-agent-gateway',
+        cacheKey: 'doo-agent',
+      },
+    })
 
     const lastUser = [...this.messages].reverse().find((m) => m.role === 'user')
     const lastUserText =
