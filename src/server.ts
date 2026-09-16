@@ -19,8 +19,15 @@ export class DooAgent extends AIChatAgent<Env> {
   // processing a message, so MCP tools aren't intermittently missing.
   waitForMcpConnections = true
 
+  private get sessionId(): string {
+    return this.name
+  }
+
   onStart() {
-    // Configure OAuth popup behavior for MCP servers that require authentication
+    this.env.DB.prepare('INSERT OR IGNORE INTO chat_sessions (id, started_at) VALUES (?, ?)')
+      .bind(this.sessionId, new Date().toISOString())
+      .run()
+      .catch((e) => console.error('chat_sessions insert failed:', e))
     this.mcp.configureOAuthCallback({
       customHandler: (result) => {
         if (result.authSuccess) {
@@ -68,7 +75,7 @@ export class DooAgent extends AIChatAgent<Env> {
       return new Response(
         JSON.stringify({ error: 'The Doo agent is temporarily disabled for maintenance.' }),
         { status: 503, headers: { 'content-type': 'application/json' } }
-      )
+      ) as unknown as ReturnType<typeof streamText> extends never ? never : Response
     }
 
     const mcpTools = this.mcp.getAITools()
@@ -86,6 +93,27 @@ export class DooAgent extends AIChatAgent<Env> {
         ?.filter((p) => p.type === 'text')
         .map((p) => (p as { text: string }).text)
         .join(' ') ?? ''
+
+    await this.env.DB.prepare(
+      'INSERT INTO chat_messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)'
+    )
+      .bind(this.sessionId, 'user', lastUserText, new Date().toISOString())
+      .run()
+
+    const count = await this.env.DB.prepare(
+      'SELECT COUNT(*) as c FROM chat_messages WHERE session_id = ?'
+    )
+      .bind(this.sessionId)
+      .first<{ c: number }>()
+
+    if (count && count.c === 10) {
+      await this.env.DB.prepare(
+        'UPDATE chat_sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL'
+      )
+        .bind(new Date().toISOString(), this.sessionId)
+        .run()
+      await this.env.SUMMARY_QUEUE.send({ sessionId: this.sessionId })
+    }
 
     const lastUserEmbedding = await this.embed(lastUserText)
     const seedResults = await this.env.VECTORIZE.query(lastUserEmbedding, {
@@ -284,6 +312,56 @@ Initial retrieved documentation for the user's latest message:
 
 export default {
   async fetch(request: Request, env: Env) {
+    const url = new URL(request.url)
+    if (url.pathname === '/agents/summarize-test' && request.method === 'POST') {
+      const { sessionId } = (await request.json()) as { sessionId: string }
+      await env.SUMMARY_QUEUE.send({ sessionId })
+      return new Response('queued')
+    }
     return (await routeAgentRequest(request, env)) || new Response('Not found', { status: 404 })
+  },
+
+  async queue(batch: MessageBatch, env: Env) {
+    for (const message of batch.messages) {
+      const { sessionId } = message.body as { sessionId: string }
+      try {
+        const rows = await env.DB.prepare(
+          'SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY id'
+        )
+          .bind(sessionId)
+          .all<{ role: string; content: string }>()
+
+        const transcript = (rows.results ?? [])
+          .map((r) => `${r.role}: ${r.content}`)
+          .join('\n')
+          .slice(0, 8000)
+
+        const summaryResult = (await env.AI.run('@cf/zai-org/glm-4.7-flash', {
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Summarize this documentation-assistant conversation in 2-3 sentences: topics asked, whether they were answered from the docs.',
+            },
+            { role: 'user', content: transcript },
+          ],
+        })) as {
+          response?: string
+          choices?: { message?: { content?: string } }[]
+        }
+
+        const summary = summaryResult.response ?? summaryResult.choices?.[0]?.message?.content ?? ''
+        console.log('Summary raw output:', JSON.stringify(summaryResult).slice(0, 500))
+
+        await env.DB.prepare('UPDATE chat_sessions SET summary = ? WHERE id = ?')
+          .bind(summary || 'Summary generation returned empty', sessionId)
+          .run()
+
+        message.ack()
+      } catch (e) {
+        console.error('Summary job failed:', e)
+        message.retry()
+      }
+    }
   },
 } satisfies ExportedHandler<Env>
