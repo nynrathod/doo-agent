@@ -1,5 +1,5 @@
 {
-  "name": "agent-starter",
+  "name": "doo-agent",
   "version": "1.0.0",
   "private": true,
   "description": "Starter template for building AI chat agents on Cloudflare",
@@ -43,6 +43,8 @@
     "@vitejs/plugin-react": "^6.0.3",
     "oxfmt": "^0.56.0",
     "oxlint": "^1.71.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
