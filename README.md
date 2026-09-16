@@ -9,7 +9,7 @@ from the official documentation.
 
 > **Work in progress:** This agent currently targets **Doo 0.4.3**. It is an experimental, playful project and should **not be considered the final or authoritative source for Doo documentation**. The agent may make mistakes or provide incomplete answers.
 
-**Try it live:** https://doo-agent.nayanrathod23.workers.dev
+**Try it live:** https://doo-agent.nynrathod.workers.dev/
 
 ## What it can do
 

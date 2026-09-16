@@ -36,7 +36,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       - name: Run evals
         run: |
-          response=$(curl -s -X POST https://doo-agent.nayanrathod23.workers.dev/agents/run-evals \
+          response=$(curl -s -X POST https://doo-agent.nynrathod.workers.dev/agents/run-evals \
             -H "x-eval-token: ${{ secrets.EVAL_TOKEN }}")
           echo "$response"
           passed=$(echo "$response" | jq -r '.passed')
