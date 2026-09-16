@@ -310,14 +310,101 @@ Initial retrieved documentation for the user's latest message:
   }
 }
 
+async function embedForQuery(env: Env, text: string): Promise<number[]> {
+  const result = (await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+    text: [text],
+  })) as { data: number[][] }
+  return result.data[0]
+}
+
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url)
+
     if (url.pathname === '/agents/summarize-test' && request.method === 'POST') {
       const { sessionId } = (await request.json()) as { sessionId: string }
       await env.SUMMARY_QUEUE.send({ sessionId })
       return new Response('queued')
     }
+
+    if (url.pathname === '/agents/run-evals' && request.method === 'POST') {
+      const auth = request.headers.get('x-eval-token')
+      if (auth !== env.EVAL_TOKEN) {
+        return new Response('Unauthorized', { status: 401 })
+      }
+
+      const CASES = [
+        { id: 'loop-syntax', query: 'how to write a loop in doo', mustInclude: ['for', 'in'] },
+        { id: 'variable', query: 'how to declare a variable in doo', mustInclude: ['let'] },
+        { id: 'function', query: 'how to declare a function in doo', mustInclude: ['fn'] },
+        { id: 'main', query: 'entry point of a doo program', mustInclude: ['main'] },
+        { id: 'types-int', query: 'integer type in doo', mustInclude: ['Int'] },
+        { id: 'types-string', query: 'string type in doo', mustInclude: ['Str'] },
+        { id: 'array', query: 'how to create an array in doo', mustInclude: ['['] },
+        { id: 'struct', query: 'define a struct in doo', mustInclude: ['struct'] },
+        { id: 'enum', query: 'enums in doo', mustInclude: ['enum'] },
+        { id: 'match', query: 'pattern matching in doo', mustInclude: ['match'] },
+        { id: 'import', query: 'import modules in doo', mustInclude: ['import'] },
+        { id: 'async', query: 'async functions in doo', mustInclude: ['async'] },
+        { id: 'concurrency', query: 'run tasks concurrently in doo', mustInclude: ['go'] },
+        { id: 'ffi', query: 'call C code from doo', mustInclude: ['@extern'] },
+        { id: 'http', query: 'create an http server in doo', mustInclude: ['Server'] },
+        { id: 'database', query: 'connect to postgres in doo', mustInclude: ['Database'] },
+        { id: 'cli-run', query: 'how to run a doo program', mustInclude: ['doo run'] },
+        {
+          id: 'negative-mongodb',
+          query: 'connect to mongodb in doo',
+          mustNotInclude: ['Database::Mongo'],
+        },
+      ]
+
+      const results = []
+      let passed = 0
+      for (const testCase of CASES) {
+        const seed = await embedForQuery(env, testCase.query)
+        const matches = await env.VECTORIZE.query(seed, { topK: 3, returnMetadata: true })
+        const context = (matches.matches ?? [])
+          .map((m) => String(m.metadata?.text ?? ''))
+          .join('\n\n')
+
+        const answer = (await env.AI.run('@cf/zai-org/glm-4.7-flash', {
+          messages: [
+            {
+              role: 'system',
+              content: `You are the assistant for the Doo programming language. Answer from the documentation below. If not covered, say so. Never invent syntax.\n\n${context}`,
+            },
+            { role: 'user', content: testCase.query },
+          ],
+        })) as { response?: string; choices?: { message?: { content?: string } }[] }
+
+        const text = answer.response ?? answer.choices?.[0]?.message?.content ?? ''
+
+        const includeOk = (testCase.mustInclude ?? []).every((k) =>
+          text.toLowerCase().includes(k.toLowerCase())
+        )
+        const excludeOk = (testCase.mustNotInclude ?? []).every((k) => !text.includes(k))
+        const ok = includeOk && excludeOk && text.length > 20
+        console.log(`[eval] ${testCase.id}: ${ok ? 'PASS' : 'FAIL'}`)
+        console.log(`[eval] ${testCase.id}: ${ok ? 'PASS' : 'FAIL'} (${text.length} chars)`)
+        if (ok) passed++
+        results.push({ id: testCase.id, pass: ok, excerpt: text.slice(0, 120) })
+      }
+
+      return new Response(
+        JSON.stringify(
+          {
+            total: CASES.length,
+            passed,
+            passRate: Math.round((passed / CASES.length) * 100),
+            results,
+          },
+          null,
+          2
+        ),
+        { headers: { 'content-type': 'application/json' } }
+      )
+    }
+
     return (await routeAgentRequest(request, env)) || new Response('Not found', { status: 404 })
   },
 
