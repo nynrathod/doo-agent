@@ -2,11 +2,14 @@
   "name": "doo-agent",
   "version": "1.0.0",
   "private": true,
-  "description": "Starter template for building AI chat agents on Cloudflare",
+  "description": "AI support agent for the Doo programming language — RAG over docs, tool calling with approval gates, and a CI eval quality gate, built entirely on Cloudflare's edge stack",
   "keywords": [
+    "cloudflare",
     "agents",
-    "ai",
-    "cloudflare"
+    "rag",
+    "vectorize",
+    "durable-objects",
+    "evals"
   ],
   "license": "MIT",
   "type": "module",
