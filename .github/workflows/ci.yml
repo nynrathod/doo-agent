@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run check
+
+  deploy-and-eval:
+    needs: check
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Deploy
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Run evals
+        run: |
+          response=$(curl -s -X POST https://doo-agent.nayanrathod23.workers.dev/agents/run-evals \
+            -H "x-eval-token: ${{ secrets.EVAL_TOKEN }}")
+          echo "$response"
+          passed=$(echo "$response" | jq -r '.passed')
+          total=$(echo "$response" | jq -r '.total')
+          if [ "$passed" -lt "$((total * 85 / 100))" ]; then
+            echo "EVALS FAILED: $passed/$total (threshold 85%)"
+            exit 1
+          fi
+          echo "EVALS PASSED: $passed/$total"
