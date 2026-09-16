@@ -73,7 +73,9 @@ export class DooAgent extends AIChatAgent<Env> {
     const enabled = await this.env.FLAGS.get('agent_enabled')
     if (enabled !== 'true') {
       return new Response(
-        JSON.stringify({ error: 'The Doo agent is temporarily disabled for maintenance.' }),
+        JSON.stringify({
+          error: 'The Doo agent is temporarily disabled for maintenance.',
+        }),
         { status: 503, headers: { 'content-type': 'application/json' } }
       ) as unknown as ReturnType<typeof streamText> extends never ? never : Response
     }
@@ -334,23 +336,79 @@ export default {
       }
 
       const CASES = [
-        { id: 'loop-syntax', query: 'how to write a loop in doo', mustInclude: ['for', 'in'] },
-        { id: 'variable', query: 'how to declare a variable in doo', mustInclude: ['let'] },
-        { id: 'function', query: 'how to declare a function in doo', mustInclude: ['fn'] },
-        { id: 'main', query: 'entry point of a doo program', mustInclude: ['main'] },
+        {
+          id: 'loop-syntax',
+          query: 'how to write a loop in doo',
+          mustInclude: ['for', 'in'],
+        },
+        {
+          id: 'variable',
+          query: 'how to declare a variable in doo',
+          mustInclude: ['let'],
+        },
+        {
+          id: 'function',
+          query: 'how to declare a function in doo',
+          mustInclude: ['fn'],
+        },
+        {
+          id: 'main',
+          query: 'entry point of a doo program',
+          mustInclude: ['main'],
+        },
         { id: 'types-int', query: 'integer type in doo', mustInclude: ['Int'] },
-        { id: 'types-string', query: 'string type in doo', mustInclude: ['Str'] },
-        { id: 'array', query: 'how to create an array in doo', mustInclude: ['['] },
-        { id: 'struct', query: 'define a struct in doo', mustInclude: ['struct'] },
+        {
+          id: 'types-string',
+          query: 'string type in doo',
+          mustInclude: ['Str'],
+        },
+        {
+          id: 'array',
+          query: 'how to create an array in doo',
+          mustInclude: ['['],
+        },
+        {
+          id: 'struct',
+          query: 'define a struct in doo',
+          mustInclude: ['struct'],
+        },
         { id: 'enum', query: 'enums in doo', mustInclude: ['enum'] },
-        { id: 'match', query: 'pattern matching in doo', mustInclude: ['match'] },
-        { id: 'import', query: 'import modules in doo', mustInclude: ['import'] },
-        { id: 'async', query: 'async functions in doo', mustInclude: ['async'] },
-        { id: 'concurrency', query: 'run tasks concurrently in doo', mustInclude: ['go'] },
+        {
+          id: 'match',
+          query: 'pattern matching in doo',
+          mustInclude: ['match'],
+        },
+        {
+          id: 'import',
+          query: 'import modules in doo',
+          mustInclude: ['import'],
+        },
+        {
+          id: 'async',
+          query: 'async functions in doo',
+          mustInclude: ['async'],
+        },
+        {
+          id: 'concurrency',
+          query: 'run tasks concurrently in doo',
+          mustInclude: ['go'],
+        },
         { id: 'ffi', query: 'call C code from doo', mustInclude: ['@extern'] },
-        { id: 'http', query: 'create an http server in doo', mustInclude: ['Server'] },
-        { id: 'database', query: 'connect to postgres in doo', mustInclude: ['Database'] },
-        { id: 'cli-run', query: 'how to run a doo program', mustInclude: ['doo run'] },
+        {
+          id: 'http',
+          query: 'create an http server in doo',
+          mustInclude: ['Server'],
+        },
+        {
+          id: 'database',
+          query: 'connect to postgres in doo',
+          mustInclude: ['Database'],
+        },
+        {
+          id: 'cli-run',
+          query: 'how to run a doo program',
+          mustInclude: ['doo run'],
+        },
         {
           id: 'negative-mongodb',
           query: 'connect to mongodb in doo',
@@ -362,7 +420,10 @@ export default {
       let passed = 0
       for (const testCase of CASES) {
         const seed = await embedForQuery(env, testCase.query)
-        const matches = await env.VECTORIZE.query(seed, { topK: 3, returnMetadata: true })
+        const matches = await env.VECTORIZE.query(seed, {
+          topK: 3,
+          returnMetadata: true,
+        })
         const context = (matches.matches ?? [])
           .map((m) => String(m.metadata?.text ?? ''))
           .join('\n\n')
@@ -375,7 +436,10 @@ export default {
             },
             { role: 'user', content: testCase.query },
           ],
-        })) as { response?: string; choices?: { message?: { content?: string } }[] }
+        })) as {
+          response?: string
+          choices?: { message?: { content?: string } }[]
+        }
 
         const text = answer.response ?? answer.choices?.[0]?.message?.content ?? ''
 
@@ -387,7 +451,11 @@ export default {
         console.log(`[eval] ${testCase.id}: ${ok ? 'PASS' : 'FAIL'}`)
         console.log(`[eval] ${testCase.id}: ${ok ? 'PASS' : 'FAIL'} (${text.length} chars)`)
         if (ok) passed++
-        results.push({ id: testCase.id, pass: ok, excerpt: text.slice(0, 120) })
+        results.push({
+          id: testCase.id,
+          pass: ok,
+          excerpt: text.slice(0, 120),
+        })
       }
 
       return new Response(

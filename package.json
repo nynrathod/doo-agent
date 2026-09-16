@@ -4,12 +4,12 @@
   "private": true,
   "description": "AI support agent for the Doo programming language — RAG over docs, tool calling with approval gates, and a CI eval quality gate, built entirely on Cloudflare's edge stack",
   "keywords": [
-    "cloudflare",
     "agents",
-    "rag",
-    "vectorize",
+    "cloudflare",
     "durable-objects",
-    "evals"
+    "evals",
+    "rag",
+    "vectorize"
   ],
   "license": "MIT",
   "type": "module",
