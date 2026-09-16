@@ -1,5 +1,8 @@
 # Doo Agent
 
+![CI](https://github.com/nynrathod/doo-agent/actions/workflows/ci.yml/badge.svg)
+
+
 An AI assistant for the [Doo programming language](https://github.com/nynrathod/doolang).
 Ask it anything about Doo — syntax, types, FFI, the web framework — and it answers
 from the official documentation.
